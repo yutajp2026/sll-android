@@ -1,36 +1,29 @@
 package com.example.superllmlauncher
 
-import android.content.Context
-import android.content.Intent
+import android.annotation.SuppressLint
 import android.os.Bundle
+import android.view.ViewGroup
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.RocketLaunch
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.superllmlauncher.ui.theme.SuperLLMLauncherTheme
+
+internal const val TARGET_URL = "https://yutajapan2026-llm-test.hf.space/"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +32,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             SuperLLMLauncherTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    LauncherScreen(
+                    WebViewScreen(
+                        url = TARGET_URL,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
@@ -50,68 +44,70 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-internal const val TARGET_URL = "https://yutajapan2026-llm-test.hf.space/"
-
-fun openWebPage(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-    context.startActivity(intent)
-}
-
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun LauncherScreen(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
+fun WebViewScreen(
+    url: String,
+    modifier: Modifier = Modifier
+) {
+    var webView: WebView? by remember { mutableStateOf(null) }
+    var canGoBack by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.RocketLaunch,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(72.dp)
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Super LLM Launcher",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "LLM Web アプリケーションへアクセスします",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(32.dp))
-        Button(
-            onClick = {
-                openWebPage(context, TARGET_URL)
+    BackHandler(enabled = canGoBack) {
+        webView?.let {
+            if (it.canGoBack()) {
+                it.goBack()
+                canGoBack = it.canGoBack()
             }
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.size(8.dp))
-            Text(
-                text = "Web ページを開く",
-                style = MaterialTheme.typography.labelLarge
-            )
         }
     }
+
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+                webViewClient = object : WebViewClient() {
+                    override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                        super.doUpdateVisitedHistory(view, url, isReload)
+                        canGoBack = view?.canGoBack() == true
+                    }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        canGoBack = view?.canGoBack() == true
+                    }
+                }
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    useWideViewPort = true
+                    loadWithOverviewMode = true
+                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                }
+                loadUrl(url)
+                webView = this
+            }
+        },
+        update = {
+            webView = it
+        },
+        modifier = modifier
+    )
 }
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun LauncherScreenPreview() {
+fun WebViewScreenPreview() {
     SuperLLMLauncherTheme {
         Scaffold { innerPadding ->
-            LauncherScreen(modifier = Modifier.padding(innerPadding))
+            WebViewScreen(
+                url = TARGET_URL,
+                modifier = Modifier.padding(innerPadding)
+            )
         }
     }
 }
+
