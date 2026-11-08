@@ -1,6 +1,4 @@
 # Super LLM Launcher Android
-
-# 概要
 [Super LLM Launcher試用版](https://yutajapan2026-llm-test.hf.space/)をWebviewで開くAndroidアプリです。
 
 Super LLM Launcherの説明、Windows版やLinux版は[こちら](https://github.com/yutajp2026/super-llm-launcher)
